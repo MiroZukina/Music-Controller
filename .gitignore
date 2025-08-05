@@ -1,0 +1,39 @@
+# --- General ---
+.DS_Store
+.env
+*.log
+
+# --- Python / Django ---
+# Ignore Python cache files everywhere in the project
+**/__pycache__/
+*.pyc
+
+# Ignore the virtual environment folder inside 'music_controler'
+/music_controler/venv/
+
+# Ignore the SQLite database inside 'music_controler'
+/music_controler/db.sqlite3
+
+# Ignore IDE configuration folders
+.idea/
+.vscode/
+
+# --- React / Node ---
+# Ignore the node_modules folder inside 'frontend' (which is inside 'music_controler')
+/music_controler/frontend/node_modules/
+/music_controler/frontend/build/
+/music_controler/frontend/coverage/
+
+# Ignore other common Node files
+/music_controler/frontend/.pnp
+/music_controler/frontend/.pnp.js
+.npm
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- Credentials (CRITICAL) ---
+# Make sure your sensitive credentials file is NEVER committed
+/music_controler/spotify/credentials.py
+
+/music_controler/frontend/__init__.py
