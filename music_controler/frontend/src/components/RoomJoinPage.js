@@ -1,5 +1,5 @@
 import React, { Component } from "react";
-import { TextField, Button, Grid, Typography } from "@mui/material";
+import { TextField, Button, Grid, Typography, Card } from "@mui/material";
 import { Link, useNavigate } from "react-router-dom";
 
 // --- The Wrapper Function to provide the 'navigate' prop ---
@@ -50,37 +50,50 @@ class RoomJoinPage extends Component {
 
   render() {
     return (
-      <Grid container spacing={1} direction="column" alignItems="center">
-        <Grid>
-          <Typography variant="h4" component="h4">
-            Join a Room
-          </Typography>
-        </Grid>
-        <Grid>
-          <TextField
-            error={!!this.state.error}
-            label="Code"
-            placeholder="Enter a Room Code"
-            value={this.state.roomCode}
-            helperText={this.state.error}
-            variant="outlined"
-            onChange={this.handleTextFieldChange}
-          />
-        </Grid>
-        <Grid>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={this.roomButtonPressed}
-          >
-            Enter Room
-          </Button>
-        </Grid>
-        <Grid>
-          <Button variant="contained" color="secondary" to="/" component={Link}>
-            Back
-          </Button>
-        </Grid>
+      <Grid container direction="column" alignItems="center" justifyContent="center" sx={{ minHeight: "calc(100vh - 64px)", px: 2 }}>
+        <Card sx={{ p: 4, width: "100%", maxWidth: 420 }}>
+          <Grid container spacing={2} direction="column" alignItems="center">
+            <Grid>
+              <Typography variant="h4" component="h4" sx={{ fontWeight: 700 }}>
+                Join a Room
+              </Typography>
+            </Grid>
+            <Grid sx={{ width: "100%" }}>
+              <TextField
+                fullWidth
+                error={!!this.state.error}
+                label="Code"
+                placeholder="Enter a Room Code"
+                value={this.state.roomCode}
+                helperText={this.state.error}
+                variant="outlined"
+                onChange={this.handleTextFieldChange}
+              />
+            </Grid>
+            <Grid sx={{ width: "100%" }}>
+              <Button
+                fullWidth
+                size="large"
+                variant="contained"
+                color="primary"
+                onClick={this.roomButtonPressed}
+                sx={{ borderRadius: 999 }}
+              >
+                Enter Room
+              </Button>
+            </Grid>
+            <Grid>
+              <Button
+                variant="text"
+                to="/"
+                component={Link}
+                sx={{ color: "text.secondary" }}
+              >
+                Back
+              </Button>
+            </Grid>
+          </Grid>
+        </Card>
       </Grid>
     );
   }

@@ -1,72 +1,120 @@
-import React from "react";
-import {
-  Grid,
-  Typography,
-  Card,
-  IconButton,
-  LinearProgress,
-} from "@mui/material";
+import React, { useRef, useState, useEffect } from "react";
+import { Card, Grid, Typography, IconButton, LinearProgress } from "@mui/material";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import SkipNextIcon from "@mui/icons-material/SkipNext";
 import PauseIcon from "@mui/icons-material/Pause";
+import SkipNextIcon from "@mui/icons-material/SkipNext";
 
-const MusicPlayer = (props) => {
-  const songProgress = (props.time / props.duration) * 100;
+const MusicPlayer = ({ song, canPause, isHost, votesToSkip, onSkip, onEnded }) => {
+  const audioRef = useRef(null);
+  const [playing, setPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
 
-  const skipSong = () => {
-    const requestOptions = {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    };
-    fetch("/spotify/skip", requestOptions).then(() => props.refreshCallback());
+  useEffect(() => {
+    setProgress(0);
+    if (audioRef.current) {
+      audioRef.current.load();
+      const p = audioRef.current.play();
+      if (p) {
+        p.then(() => setPlaying(true)).catch(() => setPlaying(false));
+      }
+    }
+  }, [song.id]);
+
+  const togglePlay = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (playing) {
+      if (!canPause) return;
+      audio.pause();
+      setPlaying(false);
+    } else {
+      audio.play();
+      setPlaying(true);
+    }
   };
 
-  const pauseSong = () => {
-    const requestOptions = {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-    };
-    // --- THIS IS THE FIX ---
-    fetch("/spotify/pause", requestOptions).then(() => props.refreshCallback());
-  };
-
-  const playSong = () => {
-    const requestOptions = {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-    };
-    // --- THIS IS THE FIX ---
-    fetch("/spotify/play", requestOptions).then(() => props.refreshCallback());
+  const onTimeUpdate = () => {
+    const audio = audioRef.current;
+    if (audio && audio.duration) {
+      setProgress((audio.currentTime / audio.duration) * 100);
+    }
   };
 
   return (
-    <Card>
-      <Grid container alignItems="center">
-        <Grid item align="center" xs={4}>
-          <img src={props.image_url} height="100%" width="100%" />
+    <Card sx={{ p: 3 }}>
+      <audio
+        ref={audioRef}
+        src={song.preview_url}
+        onTimeUpdate={onTimeUpdate}
+        onEnded={() => {
+          setPlaying(false);
+          if (onEnded) onEnded();
+        }}
+      />
+      <Grid container alignItems="center" spacing={2}>
+        <Grid item>
+          <img src={song.artwork} alt="" width={96} height={96} style={{ borderRadius: 12 }} />
         </Grid>
-        <Grid item align="center" xs={8}>
-          <Typography component="h5" variant="h5">
-            {props.title}
-          </Typography>
-          <Typography color="textSecondary" variant="subtitle1">
-            {props.artist}
-          </Typography>
-          <div>
-            <IconButton onClick={props.is_playing ? pauseSong : playSong}>
-              {props.is_playing ? <PauseIcon /> : <PlayArrowIcon />}
-            </IconButton>
-
-            <IconButton onClick={skipSong}>
-              <SkipNextIcon />
-            </IconButton>
-            <Typography color="textSecondary" variant="subtitle2">
-              Votes: {props.votes} / {props.votes_required}
-            </Typography>
-          </div>
+        <Grid item style={{ flex: 1, overflow: "hidden" }}>
+          <Typography variant="h6" noWrap>{song.title}</Typography>
+          <Typography color="text.secondary" noWrap>{song.artist}</Typography>
+        </Grid>
+        <Grid item>
+          <IconButton
+            onClick={togglePlay}
+            disabled={playing && !canPause}
+            sx={{
+              width: 56,
+              height: 56,
+              backgroundColor: "#a3e635",
+              color: "#1a2416",
+              "&:hover": { backgroundColor: "#bef264" },
+              "&.Mui-disabled": {
+                backgroundColor: "rgba(163, 230, 53, 0.3)",
+                color: "rgba(26, 36, 22, 0.6)",
+              },
+            }}
+          >
+            {playing ? <PauseIcon /> : <PlayArrowIcon />}
+          </IconButton>
+          <IconButton
+            onClick={onSkip}
+            title={isHost ? "Skip" : `Vote to skip (${song.votes}/${votesToSkip})`}
+            sx={{
+              ml: 1,
+              width: 56,
+              height: 56,
+              color: "#a3e635",
+              border: "1px solid rgba(163, 230, 53, 0.4)",
+              "&:hover": {
+                borderColor: "#a3e635",
+                backgroundColor: "rgba(163, 230, 53, 0.08)",
+              },
+            }}
+          >
+            <SkipNextIcon />
+          </IconButton>
         </Grid>
       </Grid>
-      <LinearProgress variant="determinate" value={songProgress} />
+      <LinearProgress
+        variant="determinate"
+        value={progress}
+        sx={{
+          mt: 3,
+          height: 8,
+          borderRadius: 4,
+          backgroundColor: "rgba(163, 230, 53, 0.15)",
+          "& .MuiLinearProgress-bar": {
+            backgroundColor: "#a3e635",
+            borderRadius: 4,
+          },
+        }}
+      />
+      {!isHost && (
+        <Typography variant="caption" color="text.secondary">
+          Skip votes: {song.votes} / {votesToSkip}
+        </Typography>
+      )}
     </Card>
   );
 };

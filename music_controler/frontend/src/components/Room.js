@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Grid, Button, Typography } from "@mui/material";
+import { Grid, Button, Typography, TextField, Card, IconButton, Chip } from "@mui/material";
+import AddIcon from "@mui/icons-material/Add";
 import CreateRoomPage from "./CreateRoomPage";
 import MusicPlayer from "./MusicPlayer";
 
@@ -10,21 +11,24 @@ const Room = (props) => {
     guestCanPause: false,
     isHost: false,
   });
-  const [song, setSong] = useState(null);
-  const [spotifyAuthenticated, setSpotifyAuthenticated] = useState(false);
+  const [queue, setQueue] = useState({ current: null, upcoming: [] });
   const [showSettings, setShowSettings] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
 
   const { roomCode } = useParams();
   const navigate = useNavigate();
+  const currentIdRef = useRef(null);
 
   useEffect(() => {
     getRoomDetails();
-    const interval = setInterval(getCurrentSong, 1000);
+    getQueue();
+    const interval = setInterval(getQueue, 2000);
     return () => clearInterval(interval);
   }, [roomCode]);
 
   const getRoomDetails = () => {
-    fetch("/api/get-room" + "?code=" + roomCode)
+    fetch("/api/get-room?code=" + roomCode)
       .then((response) => {
         if (!response.ok) {
           props.leaveRoomCallback();
@@ -38,130 +42,207 @@ const Room = (props) => {
           guestCanPause: data.guest_can_pause,
           isHost: data.is_host,
         });
-        if (data.is_host) {
-          authenticateSpotify();
-        }
       });
   };
 
-  const authenticateSpotify = () => {
-    fetch("/spotify/is-authenticated")
-      .then((response) => response.json())
+  const getQueue = () => {
+    fetch("/api/get-queue?code=" + roomCode)
+      .then((res) => res.json())
       .then((data) => {
-        setSpotifyAuthenticated(data.status);
-        if (!data.status) {
-          fetch("/spotify/get-auth-url")
-            .then((response) => response.json())
-            .then((data) => {
-              window.location.replace(data.url);
-            });
-        }
+        setQueue({ current: data.current, upcoming: data.upcoming || [] });
+        currentIdRef.current = data.current ? data.current.id : null;
       });
   };
 
-  // --- THIS IS THE CORRECTED STATE-MERGING FUNCTION ---
-  const getCurrentSong = () => {
-    fetch("/spotify/current-song")
-      .then((response) => {
-        if (response.status === 204) {
-          // If there's no song, set state to null to hide the player
-          setSong(null);
-          return null;
-        }
-        return response.json();
-      })
-      .then((data) => {
-        if (data) {
-          // Use the callback form to safely merge new data with previous state
-          setSong((prevSong) => ({ ...prevSong, ...data }));
-        }
-      });
+  const searchSongs = () => {
+    if (!searchQuery.trim()) return;
+    fetch("/api/search-songs?q=" + encodeURIComponent(searchQuery))
+      .then((res) => res.json())
+      .then(setSearchResults);
+  };
+
+  const addToQueue = (song) => {
+    fetch("/api/add-to-queue", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: roomCode, ...song }),
+    }).then(() => {
+      setSearchResults([]);
+      setSearchQuery("");
+      getQueue();
+    });
+  };
+
+  const skipSong = () => {
+    fetch("/api/vote-skip", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: roomCode }),
+    }).then(() => getQueue());
   };
 
   const leaveButtonPressed = () => {
-    const requestOptions = {
+    fetch("/api/leave-room", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-    };
-    fetch("/api/leave-room", requestOptions).then((_response) => {
+    }).then(() => {
       props.leaveRoomCallback();
       navigate("/");
     });
   };
 
-  const renderSettingsPanel = () => (
-    <Grid container spacing={1}>
-      <Grid xs={12} align="center">
-        <CreateRoomPage
-          update={true}
-          votesToSkip={roomDetails.votesToSkip}
-          guestCanPause={roomDetails.guestCanPause}
-          roomCode={roomCode}
-          updateCallback={getRoomDetails}
-          closeCallback={() => setShowSettings(false)}
-        />
+  if (showSettings) {
+    return (
+      <Grid container spacing={1}>
+        <Grid item xs={12} align="center">
+          <CreateRoomPage
+            update={true}
+            votesToSkip={roomDetails.votesToSkip}
+            guestCanPause={roomDetails.guestCanPause}
+            roomCode={roomCode}
+            updateCallback={getRoomDetails}
+            closeCallback={() => setShowSettings(false)}
+          />
+        </Grid>
+      </Grid>
+    );
+  }
+
+  const resultCardSx = {
+    display: "flex",
+    alignItems: "center",
+    p: 3,
+    mt: 1,
+    transition: "border-color 0.2s ease",
+    "&:hover": { borderColor: "rgba(163, 230, 53, 0.45)" },
+  };
+
+  return (
+    <Grid container spacing={2} direction="column" alignItems="center" sx={{ py: 4, px: 2 }}>
+      <Grid item xs={12}>
+        <Grid container direction="column" alignItems="center" spacing={1}>
+          <Grid item>
+            <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 1.5 }}>
+              Room
+            </Typography>
+          </Grid>
+          <Grid item>
+            <Chip
+              label={roomCode}
+              sx={{
+                backgroundColor: "#a3e635",
+                color: "#1a2416",
+                fontFamily: '"Sora", sans-serif',
+                fontWeight: 700,
+                letterSpacing: 1,
+                px: 1,
+              }}
+            />
+          </Grid>
+        </Grid>
+      </Grid>
+
+      <Grid item xs={12} style={{ width: "100%", maxWidth: 480 }}>
+        <Grid container spacing={1}>
+          <Grid item xs={9}>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="Search for a song..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && searchSongs()}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  backgroundColor: "#1f2a19",
+                  "& fieldset": { borderColor: "rgba(163, 230, 53, 0.15)" },
+                  "&:hover fieldset": { borderColor: "rgba(163, 230, 53, 0.4)" },
+                  "&.Mui-focused fieldset": { borderColor: "#a3e635", borderWidth: 2 },
+                },
+              }}
+            />
+          </Grid>
+          <Grid item xs={3}>
+            <Button fullWidth variant="contained" color="primary" onClick={searchSongs}>
+              Search
+            </Button>
+          </Grid>
+        </Grid>
+        {searchResults.map((song, i) => (
+          <Card key={i} sx={resultCardSx}>
+            <img src={song.artwork} alt="" width={44} height={44} style={{ borderRadius: 8 }} />
+            <div style={{ flex: 1, marginLeft: 12, overflow: "hidden" }}>
+              <Typography noWrap>{song.title}</Typography>
+              <Typography variant="body2" color="text.secondary" noWrap>
+                {song.artist}
+              </Typography>
+            </div>
+            <IconButton onClick={() => addToQueue(song)} sx={{ color: "#a3e635" }}>
+              <AddIcon />
+            </IconButton>
+          </Card>
+        ))}
+      </Grid>
+
+      <Grid item xs={12} style={{ width: "100%", maxWidth: 480 }}>
+        {queue.current ? (
+          <MusicPlayer
+            song={queue.current}
+            canPause={roomDetails.isHost || roomDetails.guestCanPause}
+            isHost={roomDetails.isHost}
+            votesToSkip={roomDetails.votesToSkip}
+            onSkip={skipSong}
+            onEnded={roomDetails.isHost ? skipSong : undefined}
+          />
+        ) : (
+          <Typography align="center" color="text.secondary">
+            Queue is empty — search and add a song!
+          </Typography>
+        )}
+      </Grid>
+
+      {queue.upcoming.length > 0 && (
+        <Grid item xs={12} style={{ width: "100%", maxWidth: 480 }}>
+          <Typography variant="h6" sx={{ mb: 1 }}>Up next</Typography>
+          {queue.upcoming.map((song) => (
+            <Card key={song.id} sx={resultCardSx}>
+              <img src={song.artwork} alt="" width={36} height={36} style={{ borderRadius: 8 }} />
+              <div style={{ flex: 1, marginLeft: 12, overflow: "hidden" }}>
+                <Typography variant="body2" noWrap>
+                  {song.title} — {song.artist}
+                </Typography>
+              </div>
+            </Card>
+          ))}
+        </Grid>
+      )}
+
+      <Grid item xs={12} sx={{ mt: 1 }}>
+        {roomDetails.isHost && (
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => setShowSettings(true)}
+            sx={{ mr: 1, borderRadius: 999 }}
+          >
+            Settings
+          </Button>
+        )}
+        <Button
+          variant="outlined"
+          onClick={leaveButtonPressed}
+          sx={{
+            borderRadius: 999,
+            color: "#f87171",
+            borderColor: "#f87171",
+            "&:hover": { borderColor: "#f87171", backgroundColor: "rgba(248, 113, 113, 0.08)" },
+          }}
+        >
+          Leave Room
+        </Button>
       </Grid>
     </Grid>
   );
-
-  const checkDevices = () => {
-    fetch("/spotify/devices")
-        .then(res => res.json())
-        .then(data => {
-            console.log("SPOTIFY DEVICES:", data);
-            alert("Check the browser console for the list of Spotify devices.");
-        });
-}
-
-const renderRoomDetails = () => (
-  <Grid container spacing={1} direction="column" alignItems="center">
-    <Grid item xs={12}>
-      <Typography variant="h4" component="h4">
-        Code: {roomCode}
-      </Typography>
-    </Grid>
-
-    {song ? (
-      <MusicPlayer {...song} refreshCallback={getCurrentSong} />
-    ) : (
-      <Typography>No song is currently playing.</Typography>
-    )}
-
- 
-    {roomDetails.isHost && (
-      <Grid item xs={12}>
-        <Button variant="contained" onClick={checkDevices}>
-          Check Spotify Devices
-        </Button>
-      </Grid>
-    )}
-
-    {roomDetails.isHost && (
-      <Grid item xs={12}>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={() => setShowSettings(true)}
-        >
-          Settings
-        </Button>
-      </Grid>
-    )}
-
-
-    <Grid item xs={12}>
-      <Button
-        variant="contained"
-        color="secondary"
-        onClick={leaveButtonPressed}
-      >
-        Leave Room
-      </Button>
-    </Grid>
-  </Grid>
-);
-
-  return showSettings ? renderSettingsPanel() : renderRoomDetails();
 };
 
 export default Room;

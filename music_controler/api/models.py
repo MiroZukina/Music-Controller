@@ -23,4 +23,23 @@ class Room(models.Model):
     votes_to_skip = models.IntegerField(null=False, default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     current_song = models.CharField(max_length=50, null=True)
+
+
+class QueueItem(models.Model):
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='queue')
+    title = models.CharField(max_length=200)
+    artist = models.CharField(max_length=200)
+    artwork = models.URLField(blank=True)
+    preview_url = models.URLField()
+    votes = models.IntegerField(default=0)
+    played = models.BooleanField(default=False)
+    added_at = models.DateTimeField(auto_now_add=True)
+
+
+class Vote(models.Model):
+    queue_item = models.ForeignKey(QueueItem, on_delete=models.CASCADE)
+    session_key = models.CharField(max_length=100)
+
+    class Meta:
+        unique_together = ('queue_item', 'session_key')
     

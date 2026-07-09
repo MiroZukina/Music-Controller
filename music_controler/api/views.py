@@ -1,11 +1,12 @@
 from django.shortcuts import render
 from rest_framework import generics, status
 from .serializers import RoomSerializer, CreateRoomSerializer, UpdateRoomSerializer
-from .models import Room
+from .models import Room, QueueItem, Vote
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.http import JsonResponse
-
+from rest_framework import status
+import requests as http_requests
 
 # --- View 1: List all rooms ---
 # This view is for fetching a list of all rooms. Good for debugging.
@@ -141,3 +142,116 @@ class UpdateRoom(APIView):
             return Response(RoomSerializer(room).data, status=status.HTTP_200_OK)
 
         return Response({'Bad Request': "Invalid Data..."}, status=status.HTTP_400_BAD_REQUEST)
+    
+_audius_host = None
+
+
+def _get_audius_host():
+    global _audius_host
+    if _audius_host:
+        return _audius_host
+    r = http_requests.get('https://api.audius.co', timeout=5)
+    hosts = r.json().get('data', [])
+    _audius_host = hosts[0]
+    return _audius_host
+
+
+class SearchSongs(APIView):
+    def get(self, request, format=None):
+        query = request.GET.get('q')
+        if not query:
+            return Response({'error': 'Missing q parameter'}, status=status.HTTP_400_BAD_REQUEST)
+        host = _get_audius_host()
+        r = http_requests.get(
+            f'{host}/v1/tracks/search',
+            params={'query': query, 'app_name': 'musiccontroller'},
+            timeout=5,
+        )
+        tracks = r.json().get('data', [])[:12]
+        results = [
+            {
+                'title': t['title'],
+                'artist': t['user']['name'],
+                'album': '',
+                'artwork': (t.get('artwork') or {}).get('480x480', '') or '',
+                'preview_url': f'{host}/v1/tracks/{t["id"]}/stream?app_name=musiccontroller',
+                'duration': t.get('duration'),
+            }
+            for t in tracks
+            if t.get('is_streamable') is not False
+        ]
+        return Response(results, status=status.HTTP_200_OK)
+    
+
+class AddToQueue(APIView):
+    def post(self, request, format=None):
+        if not self.request.session.exists(self.request.session.session_key):
+            self.request.session.create()
+        code = request.data.get('code')
+        room = Room.objects.filter(code=code).first()
+        if not room:
+            return Response({'error': 'Room not found'}, status=status.HTTP_404_NOT_FOUND)
+        QueueItem.objects.create(
+            room=room,
+            title=request.data.get('title', ''),
+            artist=request.data.get('artist', ''),
+            artwork=request.data.get('artwork', ''),
+            preview_url=request.data.get('preview_url', ''),
+        )
+        return Response({'message': 'Added'}, status=status.HTTP_201_CREATED)
+
+
+class GetQueue(APIView):
+    def get(self, request, format=None):
+        code = request.GET.get('code')
+        room = Room.objects.filter(code=code).first()
+        if not room:
+            return Response({'error': 'Room not found'}, status=status.HTTP_404_NOT_FOUND)
+        items = room.queue.filter(played=False).order_by('added_at')
+        data = [
+            {
+                'id': i.id,
+                'title': i.title,
+                'artist': i.artist,
+                'artwork': i.artwork,
+                'preview_url': i.preview_url,
+                'votes': i.votes,
+            }
+            for i in items
+        ]
+        current = data[0] if data else None
+        upcoming = data[1:] if len(data) > 1 else []
+        return Response({
+            'current': current,
+            'upcoming': upcoming,
+            'votes_to_skip': room.votes_to_skip,
+        }, status=status.HTTP_200_OK)
+
+
+class VoteSkip(APIView):
+    def post(self, request, format=None):
+        if not self.request.session.exists(self.request.session.session_key):
+            self.request.session.create()
+        code = request.data.get('code')
+        room = Room.objects.filter(code=code).first()
+        if not room:
+            return Response({'error': 'Room not found'}, status=status.HTTP_404_NOT_FOUND)
+        current = room.queue.filter(played=False).order_by('added_at').first()
+        if not current:
+            return Response({'error': 'Nothing playing'}, status=status.HTTP_404_NOT_FOUND)
+
+        session_key = self.request.session.session_key
+        is_host = room.host == session_key
+
+        if is_host:
+            current.played = True
+            current.save()
+            return Response({'skipped': True}, status=status.HTTP_200_OK)
+
+        _, created = Vote.objects.get_or_create(queue_item=current, session_key=session_key)
+        if created:
+            current.votes += 1
+        if current.votes >= room.votes_to_skip:
+            current.played = True
+        current.save()
+        return Response({'skipped': current.played, 'votes': current.votes}, status=status.HTTP_200_OK)

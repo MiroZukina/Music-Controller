@@ -14,6 +14,9 @@
 # Ignore the SQLite database inside 'music_controler'
 /music_controler/db.sqlite3
 
+# Ignore collectstatic output inside 'music_controler'
+/music_controler/staticfiles/
+
 # Ignore IDE configuration folders
 .idea/
 .vscode/
@@ -37,3 +40,12 @@ yarn-error.log*
 /music_controler/spotify/credentials.py
 
 /music_controler/frontend/__init__.py
+venv/
+node_modules/
+__pycache__/
+*.pyc
+db.sqlite3
+staticfiles/
+.env
+.DS_Store
+spotify/credentials.py
