@@ -1,16 +1,28 @@
 import React, { useRef, useState, useEffect } from "react";
-import { Card, Grid, Typography, IconButton, LinearProgress } from "@mui/material";
+import { Card, Grid, Typography, IconButton, Slider, Box } from "@mui/material";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import PauseIcon from "@mui/icons-material/Pause";
 import SkipNextIcon from "@mui/icons-material/SkipNext";
 
+const formatTime = (seconds) => {
+  if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+};
+
 const MusicPlayer = ({ song, canPause, isHost, votesToSkip, onSkip, onEnded }) => {
   const audioRef = useRef(null);
   const [playing, setPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragValue, setDragValue] = useState(0);
 
   useEffect(() => {
-    setProgress(0);
+    setCurrentTime(0);
+    setDuration(0);
+    setIsDragging(false);
     if (audioRef.current) {
       audioRef.current.load();
       const p = audioRef.current.play();
@@ -35,9 +47,36 @@ const MusicPlayer = ({ song, canPause, isHost, votesToSkip, onSkip, onEnded }) =
 
   const onTimeUpdate = () => {
     const audio = audioRef.current;
-    if (audio && audio.duration) {
-      setProgress((audio.currentTime / audio.duration) * 100);
+    if (!audio) return;
+    if (!isDragging) {
+      setCurrentTime(audio.currentTime);
     }
+    if (Number.isFinite(audio.duration)) {
+      setDuration(audio.duration);
+    }
+  };
+
+  const onLoadedMetadata = () => {
+    const audio = audioRef.current;
+    if (audio && Number.isFinite(audio.duration)) {
+      setDuration(audio.duration);
+    }
+  };
+
+  const handleSeekChange = (event, value) => {
+    if (!canPause) return;
+    setIsDragging(true);
+    setDragValue(value);
+  };
+
+  const handleSeekCommit = (event, value) => {
+    if (!canPause) return;
+    const audio = audioRef.current;
+    if (audio && Number.isFinite(duration) && duration > 0) {
+      audio.currentTime = value;
+      setCurrentTime(value);
+    }
+    setIsDragging(false);
   };
 
   return (
@@ -46,6 +85,7 @@ const MusicPlayer = ({ song, canPause, isHost, votesToSkip, onSkip, onEnded }) =
         ref={audioRef}
         src={song.preview_url}
         onTimeUpdate={onTimeUpdate}
+        onLoadedMetadata={onLoadedMetadata}
         onEnded={() => {
           setPlaying(false);
           if (onEnded) onEnded();
@@ -96,20 +136,50 @@ const MusicPlayer = ({ song, canPause, isHost, votesToSkip, onSkip, onEnded }) =
           </IconButton>
         </Grid>
       </Grid>
-      <LinearProgress
-        variant="determinate"
-        value={progress}
+      <Slider
+        value={isDragging ? dragValue : currentTime}
+        min={0}
+        max={duration || 0}
+        disabled={!canPause}
+        onChange={handleSeekChange}
+        onChangeCommitted={handleSeekCommit}
         sx={{
           mt: 3,
           height: 8,
-          borderRadius: 4,
-          backgroundColor: "rgba(163, 230, 53, 0.15)",
-          "& .MuiLinearProgress-bar": {
+          color: "#a3e635",
+          padding: "13px 0",
+          "& .MuiSlider-rail": {
+            backgroundColor: "rgba(163, 230, 53, 0.2)",
+            opacity: 1,
+          },
+          "& .MuiSlider-track": {
             backgroundColor: "#a3e635",
-            borderRadius: 4,
+            border: "none",
+          },
+          "& .MuiSlider-thumb": {
+            width: 14,
+            height: 14,
+            backgroundColor: "#a3e635",
+            "&:hover, &.Mui-focusVisible": {
+              boxShadow: "0 0 0 8px rgba(163, 230, 53, 0.16)",
+            },
+          },
+          "&.Mui-disabled": {
+            color: "rgba(163, 230, 53, 0.4)",
+          },
+          "&.Mui-disabled .MuiSlider-rail": {
+            backgroundColor: "rgba(163, 230, 53, 0.15)",
           },
         }}
       />
+      <Box display="flex" justifyContent="space-between" mt={-1}>
+        <Typography variant="caption" color="text.secondary">
+          {formatTime(isDragging ? dragValue : currentTime)}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {formatTime(duration)}
+        </Typography>
+      </Box>
       {!isHost && (
         <Typography variant="caption" color="text.secondary">
           Skip votes: {song.votes} / {votesToSkip}
