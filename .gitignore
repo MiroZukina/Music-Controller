@@ -8,28 +8,28 @@
 **/__pycache__/
 *.pyc
 
-# Ignore the virtual environment folder inside 'music_controler'
-/music_controler/venv/
+# Ignore the virtual environment folder inside 'music_controller'
+/music_controller/venv/
 
-# Ignore the SQLite database inside 'music_controler'
-/music_controler/db.sqlite3
+# Ignore the SQLite database inside 'music_controller'
+/music_controller/db.sqlite3
 
-# Ignore collectstatic output inside 'music_controler'
-/music_controler/staticfiles/
+# Ignore collectstatic output inside 'music_controller'
+/music_controller/staticfiles/
 
 # Ignore IDE configuration folders
 .idea/
 .vscode/
 
 # --- React / Node ---
-# Ignore the node_modules folder inside 'frontend' (which is inside 'music_controler')
-/music_controler/frontend/node_modules/
-/music_controler/frontend/build/
-/music_controler/frontend/coverage/
+# Ignore the node_modules folder inside 'frontend' (which is inside 'music_controller')
+/music_controller/frontend/node_modules/
+/music_controller/frontend/build/
+/music_controller/frontend/coverage/
 
 # Ignore other common Node files
-/music_controler/frontend/.pnp
-/music_controler/frontend/.pnp.js
+/music_controller/frontend/.pnp
+/music_controller/frontend/.pnp.js
 .npm
 npm-debug.log*
 yarn-debug.log*
@@ -37,9 +37,9 @@ yarn-error.log*
 
 # --- Credentials (CRITICAL) ---
 # Make sure your sensitive credentials file is NEVER committed
-/music_controler/spotify/credentials.py
+/music_controller/spotify/credentials.py
 
-/music_controler/frontend/__init__.py
+/music_controller/frontend/__init__.py
 venv/
 node_modules/
 __pycache__/
