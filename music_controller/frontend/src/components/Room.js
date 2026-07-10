@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Grid, Button, Typography, TextField, Card, IconButton, Chip } from "@mui/material";
+import { Grid, Button, Typography, TextField, Card, IconButton, Chip, Tooltip } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import CreateRoomPage from "./CreateRoomPage";
 import MusicPlayer from "./MusicPlayer";
 
@@ -15,6 +16,7 @@ const Room = (props) => {
   const [showSettings, setShowSettings] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
+  const [codeCopied, setCodeCopied] = useState(false);
 
   const { roomCode } = useParams();
   const navigate = useNavigate();
@@ -81,6 +83,13 @@ const Room = (props) => {
     }).then(() => getQueue());
   };
 
+  const copyRoomCode = () => {
+    navigator.clipboard.writeText(roomCode).then(() => {
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 1500);
+    });
+  };
+
   const leaveButtonPressed = () => {
     fetch("/api/leave-room", {
       method: "POST",
@@ -127,17 +136,24 @@ const Room = (props) => {
             </Typography>
           </Grid>
           <Grid item>
-            <Chip
-              label={roomCode}
-              sx={{
-                backgroundColor: "#a3e635",
-                color: "#1a2416",
-                fontFamily: '"Sora", sans-serif',
-                fontWeight: 700,
-                letterSpacing: 1,
-                px: 1,
-              }}
-            />
+            <Tooltip title="Copy room code" arrow>
+              <Chip
+                icon={<ContentCopyIcon fontSize="small" />}
+                label={codeCopied ? "Copied!" : roomCode}
+                onClick={copyRoomCode}
+                clickable
+                sx={{
+                  backgroundColor: "#a3e635",
+                  color: "#1a2416",
+                  fontFamily: '"Sora", sans-serif',
+                  fontWeight: 700,
+                  letterSpacing: 1,
+                  px: 1,
+                  "& .MuiChip-icon": { color: "#1a2416" },
+                  "&:hover": { backgroundColor: "#bef264" },
+                }}
+              />
+            </Tooltip>
           </Grid>
         </Grid>
       </Grid>

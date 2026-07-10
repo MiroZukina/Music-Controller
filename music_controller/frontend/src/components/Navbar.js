@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { AppBar, Toolbar, Box, Typography, Chip, Button } from "@mui/material";
+import { AppBar, Toolbar, Box, Typography, Chip, Button, IconButton, Tooltip, Snackbar } from "@mui/material";
 import MusicNoteIcon from "@mui/icons-material/MusicNote";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { useNavigate, useLocation, Link as RouterLink } from "react-router-dom";
 
 const Navbar = () => {
   const [roomCode, setRoomCode] = useState(null);
+  const [codeCopied, setCodeCopied] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -25,7 +27,14 @@ const Navbar = () => {
     });
   };
 
+  const copyRoomCode = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    navigator.clipboard.writeText(roomCode).then(() => setCodeCopied(true));
+  };
+
   return (
+    <>
     <AppBar
       position="fixed"
       elevation={0}
@@ -72,8 +81,18 @@ const Navbar = () => {
                   fontFamily: '"Sora", sans-serif',
                   fontWeight: 700,
                   letterSpacing: 1,
+                  "&:hover": { backgroundColor: "#bef264" },
                 }}
               />
+              <Tooltip title="Copy room code" arrow>
+                <IconButton
+                  size="small"
+                  onClick={copyRoomCode}
+                  sx={{ color: "#a3e635" }}
+                >
+                  <ContentCopyIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
               <Button variant="text" onClick={handleLeave} sx={{ color: "text.secondary" }}>
                 Leave
               </Button>
@@ -101,6 +120,14 @@ const Navbar = () => {
         </Box>
       </Toolbar>
     </AppBar>
+    <Snackbar
+      open={codeCopied}
+      autoHideDuration={1500}
+      onClose={() => setCodeCopied(false)}
+      message="Code copied!"
+      anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+    />
+    </>
   );
 };
 
